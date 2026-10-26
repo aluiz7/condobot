@@ -4,3 +4,4 @@ node_modules/
 !.env.example
 logs/
 eval-results/
+data/
