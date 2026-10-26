@@ -5,6 +5,7 @@ import { getHistory, remember } from './history.ts';
 import { answer, transcribe, type Answer } from './llm.ts';
 import { logInteraction } from './log.ts';
 import { isAllowed, isOneOf } from './phone.ts';
+import { handleRegistration, runResidentCommand, type Outgoing } from './registration.ts';
 import { formatNotices, listStatus } from './status.ts';
 import { downloadMedia, sendText, showTyping, type IncomingMessage } from './whatsapp.ts';
 
@@ -80,6 +81,23 @@ const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, items)
   });
 });
 
+function wrap(to: string, text: string | undefined): Outgoing[] | undefined {
+  return text === undefined ? undefined : [{ to, text }];
+}
+
+async function sendAll(out: Outgoing[]) {
+  for (const o of out) {
+    await sendText(o.to, o.text).catch((err) => console.error('erro ao enviar para', o.to, err));
+  }
+}
+
+// Conversa de cadastro (e respostas "sim CÓDIGO" do responsável) não passa pelo modelo.
+async function route(phone: string, item: Pending) {
+  const out = handleRegistration(phone, item.text);
+  if (out) await sendAll(out);
+  else enqueue(phone, item);
+}
+
 export function isAdmin(phone: string): boolean {
   return isOneOf(phone, [config.superAdminPhone, ...config.sindicoPhones]);
 }
@@ -91,9 +109,9 @@ export async function handleMessage(msg: IncomingMessage) {
 
   // Comando da síndica responde na hora, sem esperar outras mensagens nem chamar o modelo.
   if (admin && msg.type === 'text' && msg.text?.trim().startsWith('#')) {
-    const reply = runAdminCommand(msg.text, msg.from);
-    if (reply) {
-      await sendText(msg.from, reply);
+    const out = runResidentCommand(msg.text, msg.from) ?? wrap(msg.from, runAdminCommand(msg.text, msg.from));
+    if (out) {
+      await sendAll(out);
       return;
     }
   }
@@ -101,7 +119,7 @@ export async function handleMessage(msg: IncomingMessage) {
   await showTyping(msg.id).catch(() => {});
 
   if (msg.type === 'text' && msg.text) {
-    enqueue(msg.from, { id: msg.id, text: msg.text, audio: false });
+    await route(msg.from, { id: msg.id, text: msg.text, audio: false });
     return;
   }
 
@@ -117,7 +135,7 @@ export async function handleMessage(msg: IncomingMessage) {
       await sendText(msg.from, AUDIO_ERROR_REPLY);
       return;
     }
-    enqueue(msg.from, { id: msg.id, text, audio: true });
+    await route(msg.from, { id: msg.id, text, audio: true });
     return;
   }
 

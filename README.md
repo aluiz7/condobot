@@ -16,6 +16,7 @@ WhatsApp ──► Meta (Cloud API) ──► POST /webhook ──► bot.ts ─
 - **Log** em `logs/interacoes-AAAA-MM.jsonl`, com o telefone pseudonimizado (hash). O log guarda pergunta, resposta, tokens, latência e se a resposta caiu no "não sei".
 - **Uso no WhatsApp:** mostra "digitando…" enquanto pensa (renovado a cada 20 s), junta mensagens mandadas em sequência numa resposta só, entende áudio (transcreve antes de responder) e responde "oi" ou "menu" com uma apresentação fixa, sem chamar o modelo.
 - **Status das áreas:** a síndica (e o super admin) marca uma área como fechada ou em manutenção pelo WhatsApp. O bot passa a responder isso aos moradores, com a previsão, e lembra quem registrou quando o prazo vence. Detalhes em [Comandos da administração](#comandos-da-administração).
+- **Cadastro por unidade:** o morador digita *cadastro* e o bot pede nome e unidade (fase, bloco, apto) em etapas fixas, sem o modelo. O primeiro de cada apto e as mudanças são aprovados pela administração; a família é aprovada pelo responsável do apto, respondendo *sim CÓDIGO* no WhatsApp. Na mudança, quem morava no apto sai do cadastro e é avisado. O cadastro não é exigido para tirar dúvidas.
 - **Allowlist:** durante o piloto, o bot só responde aos números de `ALLOWED_PHONES` e ao `SUPER_ADMIN_PHONE`.
 
 ## Estrutura
@@ -65,7 +66,7 @@ ngrok http 3000        # ou: cloudflared tunnel --url http://localhost:3000
 | `APP_SECRET` | recomendado | App > Configurações > Básico > Chave secreta do aplicativo. Com ela, o servidor recusa chamadas que não vieram da Meta |
 | `SUPER_ADMIN_PHONE` | sim | Seu número, só dígitos, com 55 e DDD |
 | `SINDICO_PHONES` | não | Números que podem usar os comandos de status, separados por vírgula. O super admin já pode |
-| `DATA_DIR` | não | Pasta do banco SQLite com o status das áreas. Padrão `data` |
+| `DATA_DIR` | não | Pasta do banco SQLite (status das áreas e cadastro). Padrão `data` |
 | `ALLOWED_PHONES` | não | Números liberados no piloto, separados por vírgula. Vazio libera todos |
 | `DEBOUNCE_MS` | não | Espera depois da última mensagem antes de responder, para juntar mensagens picadas. Padrão 3000 |
 | `PORT` | não | Padrão 3000 |
@@ -80,9 +81,13 @@ Só funcionam a partir do `SUPER_ADMIN_PHONE` e dos `SINDICO_PHONES`. De qualque
 | `#fechar salão adulto: evento da administração` | Marca como fechada |
 | `#abrir piscina` | Remove o aviso; a área volta a seguir a tabela |
 | `#status` | Lista os avisos ativos |
+| `#pendentes` | Lista os cadastros aguardando aprovação, com o código de cada um |
+| `#aprovar K7QM` / `#recusar K7QM` | Decide um cadastro pelo código. Também serve para liberar um pedido de família quando o responsável não responde |
 | `#ajuda` | Mostra esses comandos |
 
 A área é texto livre (`elevador bloco 6` também vale). Prazos aceitos: `18h`, `amanhã`, `sexta 14h30`, `30/10`, `3 dias`, `2 horas`. Prazo só com o dia vence às 18h. Se o prazo não for reconhecido ("até a peça chegar"), ele aparece como foi escrito, sem lembrete.
+
+Os avisos de cadastro para a administração e para o responsável do apto também são texto livre, com a mesma limitação da janela de 24h.
 
 Quando a previsão vence e o aviso continua, o bot manda um lembrete para quem registrou. Esse lembrete é texto livre, então só chega se a pessoa falou com o bot nas últimas 24h; fora disso, vai precisar de um template aprovado.
 
@@ -129,7 +134,7 @@ Qualquer serviço que rode Node com processo persistente serve. Recomendação p
 
 Rode **uma instância só**. O histórico das conversas e a deduplicação das mensagens ficam em memória. Com duas instâncias, o bot pode responder duas vezes ou perder o contexto.
 
-Os logs (`logs/`) e o banco do status das áreas (`data/`) ficam no disco do container. Em Railway ou Render, o disco é apagado a cada deploy: monte um volume persistente e aponte `LOG_DIR` e `DATA_DIR` para ele.
+Os logs (`logs/`) e o banco com status das áreas e cadastro (`data/`) ficam no disco do container. Em Railway ou Render, o disco é apagado a cada deploy: monte um volume persistente e aponte `LOG_DIR` e `DATA_DIR` para ele.
 
 ## Limites conhecidos
 

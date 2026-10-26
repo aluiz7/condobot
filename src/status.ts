@@ -1,7 +1,4 @@
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { config } from './config.ts';
+import { getDb } from './db.ts';
 import { formatBrt } from './deadline.ts';
 
 // Status das áreas comuns informado pela síndica. Só guarda exceções: área sem registro funciona pela tabela.
@@ -16,27 +13,6 @@ export type AreaStatus = {
   updatedAt: string;
   updatedBy: string;
 };
-
-let db: DatabaseSync | undefined;
-
-function getDb() {
-  if (db) return db;
-  const path = config.dataDir === ':memory:' ? ':memory:' : join(config.dataDir, 'condobot.db');
-  if (path !== ':memory:') mkdirSync(config.dataDir, { recursive: true });
-  db = new DatabaseSync(path);
-  db.exec(`CREATE TABLE IF NOT EXISTS area_status (
-    key TEXT PRIMARY KEY,
-    area TEXT NOT NULL,
-    state TEXT NOT NULL CHECK (state IN ('fechada', 'manutencao')),
-    note TEXT,
-    until TEXT,
-    until_label TEXT,
-    updated_at TEXT NOT NULL,
-    updated_by TEXT NOT NULL,
-    reminded INTEGER NOT NULL DEFAULT 0
-  )`);
-  return db;
-}
 
 // "Salão  Infantil" e "salao infantil" são a mesma área.
 export function areaKey(name: string): string {
