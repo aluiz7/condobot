@@ -68,7 +68,7 @@ async function withFallback<T>(fn: (model: string) => Promise<T>): Promise<T> {
 }
 
 // Na base essencial a resposta é consultar uma tabela: vai sem thinkingConfig, que no Flash Lite já sai sem
-// raciocínio (medido: 0 tokens de raciocínio e ~3 s a menos que com MINIMAL). Nas regras, MINIMAL inventava
+// raciocínio (medido: 0 tokens). Nas regras, MINIMAL inventava
 // itens do regimento na avaliação, então lá fica o nível configurado.
 function thinkingFor(model: string, tier: Tier) {
   if (model.startsWith('gemini-2')) return { thinkingBudget: config.gemini.thinkingBudget };
