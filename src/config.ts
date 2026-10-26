@@ -43,7 +43,7 @@ export const config = {
   // Banco SQLite (status das áreas). Em produção, aponte para um volume persistente.
   dataDir: optional('DATA_DIR', 'data'),
   // Espera depois da última mensagem antes de responder, para juntar mensagens picadas numa resposta só.
-  debounceMs: Number(optional('DEBOUNCE_MS', '3000')),
+  debounceMs: Number(optional('DEBOUNCE_MS', '1500')),
   logDir: optional('LOG_DIR', 'logs'),
   timezone: 'America/Sao_Paulo',
 };

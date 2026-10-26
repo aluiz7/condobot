@@ -73,7 +73,7 @@ ngrok http 3000        # ou: cloudflared tunnel --url http://localhost:3000
 | `MAX_MORADORES_POR_APTO` | não | Limite de cadastrados por apto que o responsável pode liberar sozinho. Padrão 6 |
 | `DATA_DIR` | não | Pasta do banco SQLite (status das áreas e cadastro). Padrão `data` |
 | `ALLOWED_PHONES` | não | Números liberados no piloto, separados por vírgula. Vazio libera todos |
-| `DEBOUNCE_MS` | não | Espera depois da última mensagem antes de responder, para juntar mensagens picadas. Padrão 3000 |
+| `DEBOUNCE_MS` | não | Espera depois da última mensagem antes de responder, para juntar mensagens picadas. Padrão 1500; o que chegar depois, durante a geração, também entra na mesma resposta |
 | `PORT` | não | Padrão 3000 |
 
 ## Comandos da administração
