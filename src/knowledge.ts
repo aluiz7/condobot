@@ -24,7 +24,8 @@ function collect(root: string, entry: string): string[] {
 export function loadKnowledge(root = join(import.meta.dirname, '..', 'base')): string {
   return ORDER.flatMap((entry) => collect(root, entry))
     .map((file) => {
-      const name = relative(root, file);
+      // Barra normal também no Windows, para o nome do arquivo ser o mesmo em qualquer máquina.
+      const name = relative(root, file).replaceAll('\\', '/');
       return `<documento arquivo="${name}">\n${readFileSync(file, 'utf8').trim()}\n</documento>`;
     })
     .join('\n\n');
