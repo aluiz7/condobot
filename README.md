@@ -14,6 +14,7 @@ WhatsApp ──► Meta (Cloud API) ──► POST /webhook ──► bot.ts ─
 - **Prioridade das fontes:** tabela 2026 > fichas das áreas > regimento 2017 > convenção 2010. As regras estão em `src/prompt.ts`.
 - **Histórico** em memória: últimas 10 trocas por número, por até 24h. Se o processo reiniciar, o histórico se perde, o que é aceitável no MVP.
 - **Log** em `logs/interacoes-AAAA-MM.jsonl`, com o telefone pseudonimizado (hash). O log guarda pergunta, resposta, tokens, latência e se a resposta caiu no "não sei".
+- **Uso no WhatsApp:** mostra "digitando…" enquanto pensa (renovado a cada 20 s), junta mensagens mandadas em sequência numa resposta só, entende áudio (transcreve antes de responder) e responde "oi" ou "menu" com uma apresentação fixa, sem chamar o modelo.
 - **Allowlist:** durante o piloto, o bot só responde aos números de `ALLOWED_PHONES` e ao `SUPER_ADMIN_PHONE`.
 
 ## Estrutura
@@ -41,6 +42,7 @@ npm install
 cp .env.example .env   # preencha as variáveis
 npm test               # testes de rota e de telefone (não chamam APIs)
 npm run dev            # sobe em http://localhost:3000
+npm run chat           # conversa com o bot no terminal, sem WhatsApp
 ```
 
 Para a Meta alcançar sua máquina, exponha a porta com um túnel:
@@ -62,6 +64,7 @@ ngrok http 3000        # ou: cloudflared tunnel --url http://localhost:3000
 | `APP_SECRET` | recomendado | App > Configurações > Básico > Chave secreta do aplicativo. Com ela, o servidor recusa chamadas que não vieram da Meta |
 | `SUPER_ADMIN_PHONE` | sim | Seu número, só dígitos, com 55 e DDD |
 | `ALLOWED_PHONES` | não | Números liberados no piloto, separados por vírgula. Vazio libera todos |
+| `DEBOUNCE_MS` | não | Espera depois da última mensagem antes de responder, para juntar mensagens picadas. Padrão 3000 |
 | `PORT` | não | Padrão 3000 |
 
 ## Configurando o webhook na Meta
@@ -114,5 +117,6 @@ Os logs ficam no disco do container. Em Railway ou Render, o disco é apagado a 
 - **Plano gratuito do Gemini serve só para teste.** No `gemini-2.5-flash` e nos Flash 3.x o limite é de 20 requisições por dia; por isso o padrão é o `gemini-3.5-flash-lite`, que tem 500 por dia. Em todos, o teto de 250 mil tokens de entrada por minuto segura cerca de 4 perguntas por minuto, porque cada uma leva ~55 mil tokens. O Flash Lite também devolve 503 ("high demand") com frequência; o bot tenta de novo duas vezes antes de responder com erro. Além disso, no plano gratuito o Google pode usar os dados para treinar modelos, o que conflita com a LGPD. Ative o faturamento no projeto do Google Cloud antes de abrir para moradores.
 - **Horários de domingo** da piscina, da academia e dos correios ainda não estão na base. O bot diz que não tem a informação.
 - **Telefone externo da administração** ainda não está na base.
-- **Mensagens que não são texto** (áudio, foto) recebem um aviso de que o bot só entende texto.
+- **Foto, figurinha e documento** recebem um aviso de que o bot entende texto e áudio.
+- **Latência:** no plano gratuito, o Flash Lite levou em média ~15 s por resposta, e áudio soma a transcrição (~25 s). Com faturamento ativo deve cair bastante, mas isso não foi medido.
 - Fora da janela de 24h do WhatsApp, o bot não consegue iniciar conversa. Avisos da síndica vão exigir templates aprovados (etapa futura).

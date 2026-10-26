@@ -10,6 +10,8 @@ export type Interaction = {
   latencyMs: number;
   usage: Record<string, number | undefined>;
   error?: string;
+  audio?: boolean;
+  canned?: boolean;
 };
 
 // Respostas em que o bot admite não saber: é a lista que mostra o que falta na base.
@@ -26,10 +28,12 @@ export async function logInteraction(i: Interaction, now = new Date()) {
     user: pseudonymize(i.phone),
     question: i.question,
     reply: i.reply,
-    fallback: FALLBACK.test(i.reply),
+    fallback: !i.canned && FALLBACK.test(i.reply),
     latencyMs: i.latencyMs,
     usage: i.usage,
     error: i.error,
+    audio: i.audio,
+    canned: i.canned,
   };
   await mkdir(config.logDir, { recursive: true });
   const file = join(config.logDir, `interacoes-${now.toISOString().slice(0, 7)}.jsonl`);

@@ -23,12 +23,16 @@ export const config = {
     verifyToken: () => required('VERIFY_TOKEN'),
     appSecret: optional('APP_SECRET'),
     graphVersion: optional('GRAPH_API_VERSION', 'v21.0'),
+    // Trocável só para testes, que sobem uma Graph API falsa local.
+    graphBaseUrl: optional('GRAPH_BASE_URL', 'https://graph.facebook.com'),
   },
   allowedPhones: optional('ALLOWED_PHONES')
     .split(',')
     .map((p) => p.trim())
     .filter(Boolean),
   superAdminPhone: optional('SUPER_ADMIN_PHONE'),
+  // Espera depois da última mensagem antes de responder, para juntar mensagens picadas numa resposta só.
+  debounceMs: Number(optional('DEBOUNCE_MS', '3000')),
   logDir: optional('LOG_DIR', 'logs'),
   timezone: 'America/Sao_Paulo',
 };

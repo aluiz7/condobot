@@ -81,3 +81,24 @@ export async function answer(history: Turn[], question: string, now = new Date()
     return { text: ERROR_REPLY, usage: {}, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+// Áudio vira texto antes de tudo: assim o histórico, o log e a resposta tratam a pergunta como se fosse escrita.
+export async function transcribe(audio: Buffer, mimeType: string): Promise<string> {
+  const { client } = setup();
+  const res = await withRetry(() =>
+    client.models.generateContent({
+      model: config.gemini.model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType, data: audio.toString('base64') } },
+            { text: 'Transcreva este áudio em português, exatamente como foi falado. Responda só com a transcrição.' },
+          ],
+        },
+      ],
+      config: { temperature: 0 },
+    }),
+  );
+  return res.text?.trim() ?? '';
+}
