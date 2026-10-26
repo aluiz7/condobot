@@ -7,7 +7,7 @@ import type { Turn } from './history.ts';
 
 export type Answer = {
   text: string;
-  usage: { input?: number; cached?: number; output?: number };
+  usage: { input?: number; cached?: number; output?: number; thoughts?: number };
   error?: string;
   // Por que o modelo parou (STOP, MAX_TOKENS, SAFETY...). Ajuda a entender resposta vazia.
   finish?: string;
@@ -67,12 +67,13 @@ async function withFallback<T>(fn: (model: string) => Promise<T>): Promise<T> {
   }
 }
 
-// Na base essencial a resposta é consultar uma tabela, e pensar menos corta segundos. Nas regras, MINIMAL
-// inventava itens do regimento na avaliação, então lá fica o nível configurado.
+// Na base essencial a resposta é consultar uma tabela: vai sem thinkingConfig, que no Flash Lite já sai sem
+// raciocínio (medido: 0 tokens de raciocínio e ~3 s a menos que com MINIMAL). Nas regras, MINIMAL inventava
+// itens do regimento na avaliação, então lá fica o nível configurado.
 function thinkingFor(model: string, tier: Tier) {
   if (model.startsWith('gemini-2')) return { thinkingBudget: config.gemini.thinkingBudget };
-  const level = tier === 'essencial' ? 'MINIMAL' : config.gemini.thinkingLevel.toUpperCase();
-  return { thinkingLevel: level as ThinkingLevel };
+  if (tier === 'essencial') return undefined;
+  return { thinkingLevel: config.gemini.thinkingLevel.toUpperCase() as ThinkingLevel };
 }
 
 async function generate(model: string, history: Turn[], prompt: string, tier: Tier) {
@@ -91,6 +92,7 @@ async function generate(model: string, history: Turn[], prompt: string, tier: Ti
       input: res.usageMetadata?.promptTokenCount,
       cached: res.usageMetadata?.cachedContentTokenCount,
       output: res.usageMetadata?.candidatesTokenCount,
+      thoughts: res.usageMetadata?.thoughtsTokenCount,
     },
   };
 }
