@@ -380,6 +380,7 @@ REGULAMENTO INTERNO ADMINISTRATIVO E OPERACIONAL
  menores de dez anos, quando desacompanhados de seus pais ou
  responsáveis;
 
+[Nota da curadoria: horário superado pela tabela de horários e valores 2026. Para horário, use somente a tabela.]
 4.1.12 A piscina funcionará de terça-feira a sexta-feira, das 09 às 18h, e
  sábado, domingo e feriado das 09h às 21h. Na segunda-feira fechará
  para manutenção;
@@ -420,6 +421,7 @@ REGULAMENTO INTERNO ADMINISTRATIVO E OPERACIONAL
  indevido, cabendo aos responsáveis, orientar os menores, sobre a
  inconveniência e o perigo do uso dos mesmos;
 
+[Nota da curadoria: horário superado pela tabela de horários e valores 2026. Para horário, use somente a tabela.]
 4.2.4 O horário de funcionamento será, durante a semana, de 06:00 às 10:00
  horas e de 18:00 as 00:00h; e nos sábados, domingos e feriados, das
  08:00 às 23:00 horas;
@@ -454,6 +456,7 @@ REGULAMENTO INTERNO ADMINISTRATIVO E OPERACIONAL
  será para o primeiro solicitante. Não poderá haver exclusividade para
  um determinado morador;
 
+[Nota da curadoria: horário superado pela tabela de horários e valores 2026. Para horário, use somente a tabela.]
 4.3.4 O uso do salão é limitado até às 2:00 horas da manhã, quando as
  festividades deverão se encerrar, impreterivelmente. O uso de
  aparelhos sonoros será limitado até às 22:00 horas e deve ser feito com

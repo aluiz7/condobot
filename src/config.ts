@@ -12,8 +12,10 @@ export const config = {
   port: Number(optional('PORT', '3000')),
   gemini: {
     apiKey: () => required('GEMINI_API_KEY'),
-    model: optional('GEMINI_MODEL', 'gemini-2.5-flash'),
+    model: optional('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+    // Gemini 2.x usa thinkingBudget (0 desliga); a partir do 3.x é thinkingLevel e o budget dá erro 400.
     thinkingBudget: Number(optional('GEMINI_THINKING_BUDGET', '0')),
+    thinkingLevel: optional('GEMINI_THINKING_LEVEL', 'LOW'),
   },
   whatsapp: {
     accessToken: () => required('ACCESS_TOKEN'),

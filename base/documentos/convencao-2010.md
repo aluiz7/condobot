@@ -682,6 +682,7 @@ como na destinação do mesmo ou de quaisquer de suas unidades autônomas.
 1.357, do Código Civil Brasileiro, e 17, e seu parágrafo 2º, da Lei Federal nº
 4.591/64, também referidas no Capitulo 11 desta Convenção, e nos demais casos
 em que a lei o imponha.
+[Nota da curadoria: pelo Código Civil (art. 1.351), alterar a convenção exige 2/3 dos votos dos condôminos, e mudar a destinação do edifício ou de unidade também exige 2/3 (redação da Lei 14.405/2022, que substituiu a unanimidade do item 6.33 II). Mudar uma regra do dia a dia que não altera a convenção (ex.: proibir o fumacê) segue a maioria dos presentes do item 6.19, salvo se a convenção ou a lei pedirem outro quórum.]
 6.33.2 A assembléia, para tal fim especialmente convocada, poderá, pelo voto da
 maioria absoluta de seus membros, destituir o síndico que praticar irregularidades,
 não prestar contas ou não administrar convenientemente o Condominio. Também
