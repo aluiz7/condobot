@@ -9,6 +9,8 @@ export type Answer = {
   text: string;
   usage: { input?: number; cached?: number; output?: number };
   error?: string;
+  // Por que o modelo parou (STOP, MAX_TOKENS, SAFETY...). Ajuda a entender resposta vazia.
+  finish?: string;
 };
 
 export const ERROR_REPLY =
@@ -65,38 +67,48 @@ async function withFallback<T>(fn: (model: string) => Promise<T>): Promise<T> {
   }
 }
 
-function thinkingFor(model: string) {
-  return model.startsWith('gemini-2')
-    ? { thinkingBudget: config.gemini.thinkingBudget }
-    : { thinkingLevel: config.gemini.thinkingLevel.toUpperCase() as ThinkingLevel };
+// Na base essencial a resposta é consultar uma tabela, e pensar menos corta segundos. Nas regras, MINIMAL
+// inventava itens do regimento na avaliação, então lá fica o nível configurado.
+function thinkingFor(model: string, tier: Tier) {
+  if (model.startsWith('gemini-2')) return { thinkingBudget: config.gemini.thinkingBudget };
+  const level = tier === 'essencial' ? 'MINIMAL' : config.gemini.thinkingLevel.toUpperCase();
+  return { thinkingLevel: level as ThinkingLevel };
+}
+
+async function generate(model: string, history: Turn[], prompt: string, tier: Tier) {
+  const res = await getClient().models.generateContent({
+    model,
+    contents: [
+      ...history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+      { role: 'user', parts: [{ text: prompt }] },
+    ],
+    config: { systemInstruction: systemFor(tier), temperature: 0.2, thinkingConfig: thinkingFor(model, tier) },
+  });
+  return {
+    text: res.text?.trim() ?? '',
+    finish: res.candidates?.[0]?.finishReason as string | undefined,
+    usage: {
+      input: res.usageMetadata?.promptTokenCount,
+      cached: res.usageMetadata?.cachedContentTokenCount,
+      output: res.usageMetadata?.candidatesTokenCount,
+    },
+  };
 }
 
 // notices: avisos da administração no momento (status das áreas), enviados junto com a pergunta.
 export async function answer(history: Turn[], question: string, now = new Date(), notices = '', tier?: Tier): Promise<Answer & { tier: Tier }> {
   const chosen = tier ?? pickTier(question, history);
+  const prompt = [describeNow(now), notices, question].filter(Boolean).join('\n');
   try {
-    const res = await withFallback((model) =>
-      getClient().models.generateContent({
-        model,
-        contents: [
-          ...history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-          { role: 'user', parts: [{ text: [describeNow(now), notices, question].filter(Boolean).join('\n') }] },
-        ],
-        config: { systemInstruction: systemFor(chosen), temperature: 0.2, thinkingConfig: thinkingFor(model) },
-      }),
-    );
-    const usage = {
-      input: res.usageMetadata?.promptTokenCount,
-      cached: res.usageMetadata?.cachedContentTokenCount,
-      output: res.usageMetadata?.candidatesTokenCount,
-    };
-    const text = res.text?.trim();
-    if (text?.includes(NEEDS_DOCS) && chosen !== 'completa') {
+    let r = await withFallback((model) => generate(model, history, prompt, chosen));
+    // O Flash Lite às vezes termina sem texto nenhum. Uma nova tentativa no modelo reserva costuma resolver.
+    if (!r.text) r = await generate(config.gemini.fallbackModel || config.gemini.model, history, prompt, chosen);
+    if (r.text.includes(NEEDS_DOCS) && chosen !== 'completa') {
       const full = await answer(history, question, now, notices, 'completa');
-      return { ...full, usage: { input: (usage.input ?? 0) + (full.usage.input ?? 0), cached: full.usage.cached, output: full.usage.output } };
+      return { ...full, usage: { input: (r.usage.input ?? 0) + (full.usage.input ?? 0), cached: full.usage.cached, output: full.usage.output } };
     }
-    if (!text) return { text: ERROR_REPLY, usage, error: 'resposta vazia', tier: chosen };
-    return { text, usage, tier: chosen };
+    if (!r.text) return { text: ERROR_REPLY, usage: r.usage, error: 'resposta vazia', finish: r.finish, tier: chosen };
+    return { text: r.text, usage: r.usage, finish: r.finish, tier: chosen };
   } catch (err) {
     return { text: ERROR_REPLY, usage: {}, error: err instanceof Error ? err.message : String(err), tier: chosen };
   }

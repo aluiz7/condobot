@@ -31,7 +31,7 @@ process.env.DATA_DIR = ':memory:';
 process.env.LOG_DIR = mkdtempSync(join(tmpdir(), 'condobot-'));
 
 const { createApp } = await import('../src/app.ts');
-const { cannedReply, WELCOME } = await import('../src/bot.ts');
+const { cannedReply, dropGreetings, WELCOME } = await import('../src/bot.ts');
 const { createDebouncer } = await import('../src/debounce.ts');
 const { extractMessages } = await import('../src/whatsapp.ts');
 
@@ -112,4 +112,10 @@ test('comando da síndica responde na hora, mesmo sem o nono dígito; número fo
   await app.request('/webhook', webhook('w5', '5521900000003', { type: 'text', text: { body: '#abrir quiosque' } }));
   await wait(200);
   assert.equal(sent().length, 0, 'número fora da allowlist nem é respondido');
+});
+
+test('cumprimento grudado numa pergunta sai antes de ir ao modelo', () => {
+  assert.equal(dropGreetings('Ramal academia\nOi'), 'Ramal academia');
+  assert.equal(dropGreetings('bom dia\nquanto custa o salão?\nobrigado'), 'quanto custa o salão?\nobrigado');
+  assert.equal(dropGreetings('oi\nboa tarde'), 'oi\nboa tarde');
 });

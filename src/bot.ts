@@ -33,6 +33,13 @@ export function cannedReply(text: string, hasHistory: boolean): string | undefin
   return undefined;
 }
 
+// "Oi" grudado numa pergunta ("Ramal academia" + "Oi") não acrescenta nada e só confunde o modelo.
+export function dropGreetings(text: string): string {
+  const lines = text.split('\n').filter((l) => l.trim());
+  const content = lines.filter((l) => !GREETING.test(l.trim()));
+  return (content.length ? content : lines).join('\n');
+}
+
 // A Meta reenvia o mesmo evento se não recebe 200 a tempo; guarda os ids recentes para não responder duas vezes.
 const seen = new Set<string>();
 const SEEN_LIMIT = 1000;
@@ -67,7 +74,7 @@ const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, fresh)
   const gen = ++generation;
   inflight.set(phone, { gen, items });
 
-  const question = items.map((i) => i.text).join('\n');
+  const question = dropGreetings(items.map((i) => i.text).join('\n'));
   const lastId = items[items.length - 1].id;
   const started = Date.now();
   const history = getHistory(phone);
@@ -91,6 +98,7 @@ const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, fresh)
     audio: items.some((i) => i.audio),
     canned: Boolean(canned),
     tier: result.tier,
+    finish: result.finish,
   });
 });
 

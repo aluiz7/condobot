@@ -11,7 +11,8 @@ WhatsApp ──► Meta (Cloud API) ──► POST /webhook ──► bot.ts ─
 ```
 
 - **Sem RAG, base em três tamanhos.** A base vai na instrução de sistema. `src/router.ts` escolhe quanto mandar pela pergunta: horário, valor e ramal vão só com a tabela, os ramais e as fichas (*essencial*, ~7 mil tokens); regras de convivência levam também o regimento (*regimento*); assembleia, voto, síndico e direitos do proprietário levam a convenção (*completa*, ~55 mil). Se o roteador errar para menos, o modelo responde `[PRECISO_DOS_DOCUMENTOS]` e a chamada é refeita com a base completa. Cada tamanho é o começo do seguinte, então o cache implícito do Gemini reaproveita o prefixo. O nível usado vai para o log (`tier`).
-- **Modelo reserva:** se o principal devolve 503 (sobrecarga), o bot chama na hora o `GEMINI_FALLBACK_MODEL`, sem esperar. Erro 429 (cota) não é repetido.
+- **Modelo reserva:** se o principal devolve 503 (sobrecarga) ou termina sem texto, o bot chama na hora o `GEMINI_FALLBACK_MODEL`, sem esperar. Erro 429 (cota) não é repetido. O motivo de parada do modelo vai para o log (`finish`).
+- **Raciocínio:** na base essencial o bot usa `thinkingLevel` MINIMAL (consulta de tabela, mais rápido); nas outras, o `GEMINI_THINKING_LEVEL`.
 - **Prioridade das fontes:** tabela 2026 > fichas das áreas > regimento 2017 > convenção 2010. As regras estão em `src/prompt.ts`.
 - **Histórico** em memória: últimas 10 trocas por número, por até 24h. Se o processo reiniciar, o histórico se perde, o que é aceitável no MVP.
 - **Log** em `logs/interacoes-AAAA-MM.jsonl`, com o telefone pseudonimizado (hash). O log guarda pergunta, resposta, tokens, latência e se a resposta caiu no "não sei".
