@@ -29,25 +29,28 @@ function parseTables(md: string): Map<string, Row[]> {
   return tables;
 }
 
-// Cada assunto casa tanto com a pergunta quanto com o nome da linha na tabela.
-const TOPICS: RegExp[] = [
-  /\badm\b|administra/,
-  /adulto/,
-  /gourmet/,
-  /correio/,
-  /portaria|ituacu|monteiro/,
-  /academia/,
-  /infantil/,
-  /lan ?house/,
-  /jogos/,
-  /ginastica|luta/,
-  /churrasq/,
-  /quiosque/,
-  /piscina/,
-  /sauna/,
-  /cinema/,
-  /lava.?jato/,
+// Cada assunto casa com a pergunta (q) e com o nome da linha na tabela (label, igual a q se omitido).
+type Topic = { q: RegExp; label?: RegExp };
+const TOPICS: Topic[] = [
+  { q: /\badm\b|administra/ },
+  { q: /adulto/ },
+  { q: /gourmet/ },
+  { q: /correio/ },
+  { q: /portaria|ituacu|monteiro/ },
+  { q: /academia/ },
+  { q: /infantil/ },
+  { q: /lan ?house/ },
+  { q: /jogos/ },
+  { q: /ginastica|luta/ },
+  { q: /churrasq/ },
+  { q: /quiosque/ },
+  { q: /piscina/ },
+  { q: /sauna/ },
+  { q: /cinema/ },
+  { q: /lava.?jato/ },
 ];
+// "Salão" sozinho: os salões de festa e o gourmet. Só vale quando nenhum assunto mais específico casou.
+const SALAO: Topic = { q: /\bsal(ao|oes)\b/, label: /salao (de festa )?(adulto|infantil)|gourmet/ };
 
 const INTENTS = {
   ramal: /\bramal|\bramais|interfone/,
@@ -96,18 +99,32 @@ export function quickAnswer(question: string, status: AreaStatus[] = []): string
   if (q.split(/\s+/).length > 8 || q.includes('\n') || NEEDS_MODEL.test(q)) return undefined;
 
   const intents = (Object.keys(INTENTS) as (keyof typeof INTENTS)[]).filter((k) => INTENTS[k].test(q));
-  const topics = TOPICS.filter((re) => re.test(q));
-  if (intents.length !== 1 || topics.length !== 1) return undefined;
+  let topics = TOPICS.filter((t) => t.q.test(q));
+  if (topics.length === 0 && SALAO.q.test(q)) topics = [SALAO];
+  if (intents.length > 1 || topics.length !== 1) return undefined;
+  const topic = topics[0];
+  const label = topic.label ?? topic.q;
 
   // Área com aviso de fechada ou em manutenção: quem responde é o modelo, que leva o aviso em conta.
-  if (status.some((s) => topics[0].test(strip(s.area)))) return undefined;
+  if (status.some((s) => label.test(strip(s.area)) || topic.q.test(strip(s.area)))) return undefined;
 
   const t = load();
-  const intent = intents[0];
-  const table = intent === 'ramal' ? t.ramais : intent === 'valor' ? t.valores : t.horarios;
-  const rows = table.filter((row) => topics[0].test(strip(row[0])));
-  if (rows.length) return format(intent, rows, t);
+  const pick = (table: Row[]) => table.filter((row) => label.test(strip(row[0])));
   // Salões e churrasqueiras não estão na tabela de horários: valem os horários dos espaços alugados.
-  const rented = intent === 'horario' ? t.valores.filter((row) => topics[0].test(strip(row[0]))) : [];
-  return rented.length ? format('uso', rented, t) : undefined;
+  const horario = () => {
+    const rows = pick(t.horarios);
+    if (rows.length) return format('horario', rows, t);
+    const rented = pick(t.valores);
+    return rented.length ? format('uso', rented, t) : undefined;
+  };
+  const ramal = () => (pick(t.ramais).length ? format('ramal', pick(t.ramais), t) : undefined);
+  const valor = () => (pick(t.valores).length ? format('valor', pick(t.valores), t) : undefined);
+
+  // Só o nome da área ("Piscina"): manda o que a tabela tem sobre ela.
+  if (intents.length === 0) {
+    if (q.replace(/\b(o|a|os|as|da|do|de)\b/g, ' ').trim().split(/\s+/).length > 3) return undefined;
+    const parts = [pick(t.valores).length ? valor() : horario(), ramal()].filter(Boolean);
+    return parts.length ? parts.join('\n\n') : undefined;
+  }
+  return { ramal, horario, valor }[intents[0]]();
 }

@@ -32,3 +32,20 @@ test('área com aviso da administração vai para o modelo', () => {
   assert.equal(quickAnswer('horário da piscina', status), undefined);
   assert.ok(quickAnswer('horário da academia', status));
 });
+
+test('"salão" sozinho lista os salões de festa e o gourmet', () => {
+  const r = quickAnswer('Qual ramal do salão')!;
+  assert.match(r, /adulto: \*91\*/);
+  assert.match(r, /infantil: \*97\*/);
+  assert.match(r, /gourmet: \*92\*/);
+  assert.doesNotMatch(r, /jogos/);
+  assert.match(quickAnswer('ramal do salão infantil')!, /^Salão de festa infantil: ramal \*97\*/);
+});
+
+test('só o nome da área traz o que a tabela tem sobre ela', () => {
+  const r = quickAnswer('Piscina')!;
+  assert.match(r, /Sexta e sábado, 8h às 20h/);
+  assert.match(r, /Quiosque da piscina: ramal \*107\*/);
+  assert.match(quickAnswer('salão infantil')!, /R\$ 324,20/);
+  assert.equal(quickAnswer('piscina dos fundos do bloco 7 lotada'), undefined);
+});
