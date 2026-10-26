@@ -105,7 +105,10 @@ export function isAdmin(phone: string): boolean {
 export async function handleMessage(msg: IncomingMessage) {
   if (isDuplicate(msg.id)) return;
   const admin = isAdmin(msg.from);
-  if (!admin && !isAllowed(msg.from, config.allowedPhones, config.superAdminPhone)) return;
+  if (!admin && !isAllowed(msg.from, config.allowedPhones, config.superAdminPhone)) {
+    console.log('mensagem ignorada: número fora de ALLOWED_PHONES');
+    return;
+  }
 
   // Comando da síndica responde na hora, sem esperar outras mensagens nem chamar o modelo.
   if (admin && msg.type === 'text' && msg.text?.trim().startsWith('#')) {

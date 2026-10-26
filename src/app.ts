@@ -32,7 +32,10 @@ export function createApp(handler = handleMessage) {
     }
 
     // Responde 200 na hora e processa depois: a Meta reenvia o evento se a resposta demorar.
-    for (const msg of extractMessages(payload)) {
+    const messages = extractMessages(payload);
+    // Sem o número: só o tipo, para diagnosticar se os eventos estão chegando.
+    console.log(`webhook: ${messages.length ? messages.map((m) => m.type).join(', ') : 'evento sem mensagem (status de entrega)'}`);
+    for (const msg of messages) {
       handler(msg).catch((err) => console.error('erro ao processar mensagem', msg.id, err));
     }
     return c.text('ok');
