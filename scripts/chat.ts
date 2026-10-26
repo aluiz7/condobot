@@ -3,7 +3,7 @@
 import { createInterface } from 'node:readline';
 import { cannedReply } from '../src/bot.ts';
 import { getHistory, remember } from '../src/history.ts';
-import { answer } from '../src/llm.ts';
+import { answer, type Answer } from '../src/llm.ts';
 import { formatNotices, listStatus } from '../src/status.ts';
 
 const phone = 'terminal';
@@ -21,9 +21,9 @@ for await (const line of rl) {
   const started = Date.now();
   const history = getHistory(phone);
   const canned = cannedReply(question, history.length > 0);
-  const r = canned ? { text: canned, usage: {}, error: undefined } : await answer(history, question, new Date(), formatNotices(listStatus()));
+  const r: Answer & { tier?: string } = canned ? { text: canned, usage: {} } : await answer(history, question, new Date(), formatNotices(listStatus()));
   if (!canned && !r.error) remember(phone, question, r.text);
-  const info = canned ? 'resposta fixa' : `${Date.now() - started} ms, ${r.usage.input ?? 0} tokens (${r.usage.cached ?? 0} em cache)`;
+  const info = canned ? 'resposta fixa' : `${Date.now() - started} ms, base ${r.tier}, ${r.usage.input ?? 0} tokens (${r.usage.cached ?? 0} em cache)`;
   console.log(`\nbot > ${r.text}\n      [${info}${r.error ? ', ERRO ' + r.error.slice(0, 120) : ''}]\n`);
   rl.prompt();
 }

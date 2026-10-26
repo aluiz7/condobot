@@ -57,15 +57,27 @@ async function whileTyping<T>(messageId: string, work: () => Promise<T>): Promis
 
 type Pending = { id: string; text: string; audio: boolean };
 
-const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, items) => {
+// Mensagem que chega enquanto o modelo ainda gera a resposta anterior: a resposta antiga é descartada e a
+// pergunta é refeita com tudo junto, em vez de o morador receber duas respostas desencontradas.
+const inflight = new Map<string, { gen: number; items: Pending[] }>();
+let generation = 0;
+
+const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, fresh) => {
+  const items = [...(inflight.get(phone)?.items ?? []), ...fresh];
+  const gen = ++generation;
+  inflight.set(phone, { gen, items });
+
   const question = items.map((i) => i.text).join('\n');
   const lastId = items[items.length - 1].id;
   const started = Date.now();
   const history = getHistory(phone);
   const canned = cannedReply(question, history.length > 0);
-  const result: Answer = canned
+  const result: Answer & { tier?: string } = canned
     ? { text: canned, usage: {} }
     : await whileTyping(lastId, () => answer(history, question, new Date(), formatNotices(listStatus())));
+  if (inflight.get(phone)?.gen !== gen) return;
+  inflight.delete(phone);
+
   await sendText(phone, result.text);
   if (!canned && !result.error) remember(phone, question, result.text);
 
@@ -78,6 +90,7 @@ const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, items)
     error: result.error,
     audio: items.some((i) => i.audio),
     canned: Boolean(canned),
+    tier: result.tier,
   });
 });
 

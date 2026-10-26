@@ -21,8 +21,14 @@ function collect(root: string, entry: string): string[] {
   return [path];
 }
 
-export function loadKnowledge(root = join(import.meta.dirname, '..', 'base')): string {
-  return ORDER.flatMap((entry) => collect(root, entry))
+// Quanto da base vai em cada chamada. Regimento e convenção são ~90% dos tokens; perguntas de horário,
+// valor e ramal não precisam deles, e mandar menos texto deixa a resposta bem mais rápida.
+export type Tier = 'essencial' | 'regimento' | 'completa';
+const TIER_SIZE: Record<Tier, number> = { essencial: 3, regimento: 4, completa: ORDER.length };
+
+export function loadKnowledge(tier: Tier = 'completa', root = join(import.meta.dirname, '..', 'base')): string {
+  return ORDER.slice(0, TIER_SIZE[tier])
+    .flatMap((entry) => collect(root, entry))
     .map((file) => {
       // Barra normal também no Windows, para o nome do arquivo ser o mesmo em qualquer máquina.
       const name = relative(root, file).replaceAll('\\', '/');

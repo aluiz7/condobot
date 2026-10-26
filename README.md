@@ -10,11 +10,12 @@ WhatsApp ──► Meta (Cloud API) ──► POST /webhook ──► bot.ts ─
                                                        └──► resposta ──► Meta ──► WhatsApp
 ```
 
-- **Sem RAG.** A base inteira (~55 mil tokens) vai na instrução de sistema de cada chamada. O Gemini aplica cache implícito (na avaliação, ~80% dos tokens de entrada vieram do cache) no prefixo repetido, o que barateia as chamadas seguintes.
+- **Sem RAG, base em três tamanhos.** A base vai na instrução de sistema. `src/router.ts` escolhe quanto mandar pela pergunta: horário, valor e ramal vão só com a tabela, os ramais e as fichas (*essencial*, ~7 mil tokens); regras de convivência levam também o regimento (*regimento*); assembleia, voto, síndico e direitos do proprietário levam a convenção (*completa*, ~55 mil). Se o roteador errar para menos, o modelo responde `[PRECISO_DOS_DOCUMENTOS]` e a chamada é refeita com a base completa. Cada tamanho é o começo do seguinte, então o cache implícito do Gemini reaproveita o prefixo. O nível usado vai para o log (`tier`).
+- **Modelo reserva:** se o principal devolve 503 (sobrecarga), o bot chama na hora o `GEMINI_FALLBACK_MODEL`, sem esperar. Erro 429 (cota) não é repetido.
 - **Prioridade das fontes:** tabela 2026 > fichas das áreas > regimento 2017 > convenção 2010. As regras estão em `src/prompt.ts`.
 - **Histórico** em memória: últimas 10 trocas por número, por até 24h. Se o processo reiniciar, o histórico se perde, o que é aceitável no MVP.
 - **Log** em `logs/interacoes-AAAA-MM.jsonl`, com o telefone pseudonimizado (hash). O log guarda pergunta, resposta, tokens, latência e se a resposta caiu no "não sei".
-- **Uso no WhatsApp:** mostra "digitando…" enquanto pensa (renovado a cada 20 s), junta mensagens mandadas em sequência numa resposta só, entende áudio (transcreve antes de responder) e responde "oi" ou "menu" com uma apresentação fixa, sem chamar o modelo.
+- **Uso no WhatsApp:** mostra "digitando…" enquanto pensa (renovado a cada 20 s), junta mensagens mandadas em sequência numa resposta só (inclusive as que chegam enquanto o modelo ainda está gerando: a resposta antiga é descartada e a pergunta é refeita com tudo), entende áudio (transcreve antes de responder) e responde "oi" ou "menu" com uma apresentação fixa, sem chamar o modelo.
 - **Status das áreas:** a síndica (e o super admin) marca uma área como fechada ou em manutenção pelo WhatsApp. O bot passa a responder isso aos moradores, com a previsão, e lembra quem registrou quando o prazo vence. Detalhes em [Comandos da administração](#comandos-da-administração).
 - **Cadastro por unidade:** o morador digita *cadastro* e o bot pede nome e unidade (fase, bloco, apto) em etapas fixas, sem o modelo. O primeiro de cada apto e as mudanças são aprovados pela administração; a família é aprovada pelo responsável do apto, respondendo *sim CÓDIGO* no WhatsApp. Na mudança, quem morava no apto sai do cadastro e é avisado. Para o responsável não liberar estranhos à vontade: a administração recebe um aviso de cada liberação (com o `#remover` pronto), e acima de `MAX_MORADORES_POR_APTO` (padrão 6) os pedidos de família vão para a administração. O cadastro não é exigido para tirar dúvidas.
 - **Allowlist:** durante o piloto, o bot só responde aos números de `ALLOWED_PHONES` e ao `SUPER_ADMIN_PHONE`.
@@ -27,7 +28,8 @@ WhatsApp ──► Meta (Cloud API) ──► POST /webhook ──► bot.ts ─
 | `src/bot.ts` | Fluxo de uma mensagem: allowlist, marcar como lida, gerar a resposta, enviar e logar |
 | `src/llm.ts` | Chamada ao Gemini, com a data e a hora de Brasília injetadas na pergunta |
 | `src/prompt.ts` | Prompt de sistema |
-| `src/knowledge.ts` | Monta a base a partir de `base/` |
+| `src/knowledge.ts` | Monta a base a partir de `base/`, em três tamanhos |
+| `src/router.ts` | Escolhe o tamanho da base pela pergunta |
 | `src/whatsapp.ts` | Envio, assinatura do webhook e parsing do payload |
 | `src/phone.ts` | Normalização de número (nono dígito) e allowlist |
 | `base/` | Base do condomínio, em Markdown. **Editar aqui atualiza o bot** (requer reiniciar o processo) |
@@ -59,6 +61,7 @@ ngrok http 3000        # ou: cloudflared tunnel --url http://localhost:3000
 | --- | --- | --- |
 | `GEMINI_API_KEY` | sim | [Google AI Studio](https://aistudio.google.com/apikey) |
 | `GEMINI_MODEL` | não | Padrão `gemini-3.5-flash-lite` |
+| `GEMINI_FALLBACK_MODEL` | não | Modelo usado quando o principal devolve 503. Padrão `gemini-3.1-flash-lite`; vazio desliga |
 | `GEMINI_THINKING_LEVEL` | não | Só modelos 3.x: `MINIMAL`, `LOW` (padrão), `MEDIUM`, `HIGH`. Nos 2.x vale `GEMINI_THINKING_BUDGET` (padrão 0) |
 | `ACCESS_TOKEN` | sim | Meta for Developers > app > WhatsApp > Configuração da API. Em produção, use o token permanente de um usuário do sistema (Business Manager > Usuários do sistema) |
 | `PHONE_NUMBER_ID` | sim | Mesma tela, "Identificação do número de telefone" |
@@ -141,9 +144,9 @@ Os logs (`logs/`) e o banco com status das áreas e cadastro (`data/`) ficam no 
 
 ## Limites conhecidos
 
-- **Plano gratuito do Gemini serve só para teste.** No `gemini-2.5-flash` e nos Flash 3.x o limite é de 20 requisições por dia; por isso o padrão é o `gemini-3.5-flash-lite`, que tem 500 por dia. Em todos, o teto de 250 mil tokens de entrada por minuto segura cerca de 4 perguntas por minuto, porque cada uma leva ~55 mil tokens. O Flash Lite também devolve 503 ("high demand") com frequência; o bot tenta de novo duas vezes antes de responder com erro. Além disso, no plano gratuito o Google pode usar os dados para treinar modelos, o que conflita com a LGPD. Ative o faturamento no projeto do Google Cloud antes de abrir para moradores.
+- **Plano gratuito do Gemini serve só para teste.** No `gemini-2.5-flash` e nos Flash 3.x o limite é de 20 requisições por dia; por isso o padrão é o `gemini-3.5-flash-lite`, que tem 500 por dia. Em todos, o teto de 250 mil tokens de entrada por minuto limita o volume: cerca de 4 perguntas por minuto com a base completa, bem mais com a essencial. O Flash Lite também devolve 503 ("high demand") com frequência; o bot passa para o modelo reserva. Além disso, no plano gratuito o Google pode usar os dados para treinar modelos, o que conflita com a LGPD. Ative o faturamento no projeto do Google Cloud antes de abrir para moradores.
 - **Horários de domingo** da piscina, da academia e dos correios ainda não estão na base. O bot diz que não tem a informação.
 - **Telefone externo da administração** ainda não está na base.
 - **Foto, figurinha e documento** recebem um aviso de que o bot entende texto e áudio.
-- **Latência:** no plano gratuito, o Flash Lite levou em média ~15 s por resposta, e áudio soma a transcrição (~25 s). Com faturamento ativo deve cair bastante, mas isso não foi medido.
+- **Latência:** no plano gratuito, com a base completa, o Flash Lite levou em média ~15 s por resposta, e áudio soma a transcrição. A base essencial deve reduzir bastante as perguntas de horário e valor, mas isso ainda não foi medido. Mensagem nova durante a geração descarta a resposta em curso, o que gasta uma chamada a mais.
 - Fora da janela de 24h do WhatsApp, o bot não consegue iniciar conversa. Avisos da síndica vão exigir templates aprovados (etapa futura).

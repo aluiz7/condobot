@@ -12,6 +12,8 @@ export type Interaction = {
   error?: string;
   audio?: boolean;
   canned?: boolean;
+  // Quanto da base foi junto: essencial, regimento ou completa.
+  tier?: string;
 };
 
 // Respostas em que o bot admite não saber: é a lista que mostra o que falta na base.
@@ -34,6 +36,7 @@ export async function logInteraction(i: Interaction, now = new Date()) {
     error: i.error,
     audio: i.audio,
     canned: i.canned,
+    tier: i.tier,
   };
   await mkdir(config.logDir, { recursive: true });
   const file = join(config.logDir, `interacoes-${now.toISOString().slice(0, 7)}.jsonl`);

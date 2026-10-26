@@ -13,6 +13,8 @@ export const config = {
   gemini: {
     apiKey: () => required('GEMINI_API_KEY'),
     model: optional('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+    // Usado na hora quando o principal responde 503 ("high demand"), em vez de esperar.
+    fallbackModel: optional('GEMINI_FALLBACK_MODEL', 'gemini-3.1-flash-lite'),
     // Gemini 2.x usa thinkingBudget (0 desliga); a partir do 3.x é thinkingLevel e o budget dá erro 400.
     thinkingBudget: Number(optional('GEMINI_THINKING_BUDGET', '0')),
     thinkingLevel: optional('GEMINI_THINKING_LEVEL', 'LOW'),
