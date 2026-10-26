@@ -16,7 +16,7 @@ WhatsApp ──► Meta (Cloud API) ──► POST /webhook ──► bot.ts ─
 - **Log** em `logs/interacoes-AAAA-MM.jsonl`, com o telefone pseudonimizado (hash). O log guarda pergunta, resposta, tokens, latência e se a resposta caiu no "não sei".
 - **Uso no WhatsApp:** mostra "digitando…" enquanto pensa (renovado a cada 20 s), junta mensagens mandadas em sequência numa resposta só, entende áudio (transcreve antes de responder) e responde "oi" ou "menu" com uma apresentação fixa, sem chamar o modelo.
 - **Status das áreas:** a síndica (e o super admin) marca uma área como fechada ou em manutenção pelo WhatsApp. O bot passa a responder isso aos moradores, com a previsão, e lembra quem registrou quando o prazo vence. Detalhes em [Comandos da administração](#comandos-da-administração).
-- **Cadastro por unidade:** o morador digita *cadastro* e o bot pede nome e unidade (fase, bloco, apto) em etapas fixas, sem o modelo. O primeiro de cada apto e as mudanças são aprovados pela administração; a família é aprovada pelo responsável do apto, respondendo *sim CÓDIGO* no WhatsApp. Na mudança, quem morava no apto sai do cadastro e é avisado. O cadastro não é exigido para tirar dúvidas.
+- **Cadastro por unidade:** o morador digita *cadastro* e o bot pede nome e unidade (fase, bloco, apto) em etapas fixas, sem o modelo. O primeiro de cada apto e as mudanças são aprovados pela administração; a família é aprovada pelo responsável do apto, respondendo *sim CÓDIGO* no WhatsApp. Na mudança, quem morava no apto sai do cadastro e é avisado. Para o responsável não liberar estranhos à vontade: a administração recebe um aviso de cada liberação (com o `#remover` pronto), e acima de `MAX_MORADORES_POR_APTO` (padrão 6) os pedidos de família vão para a administração. O cadastro não é exigido para tirar dúvidas.
 - **Allowlist:** durante o piloto, o bot só responde aos números de `ALLOWED_PHONES` e ao `SUPER_ADMIN_PHONE`.
 
 ## Estrutura
@@ -66,6 +66,7 @@ ngrok http 3000        # ou: cloudflared tunnel --url http://localhost:3000
 | `APP_SECRET` | recomendado | App > Configurações > Básico > Chave secreta do aplicativo. Com ela, o servidor recusa chamadas que não vieram da Meta |
 | `SUPER_ADMIN_PHONE` | sim | Seu número, só dígitos, com 55 e DDD |
 | `SINDICO_PHONES` | não | Números que podem usar os comandos de status, separados por vírgula. O super admin já pode |
+| `MAX_MORADORES_POR_APTO` | não | Limite de cadastrados por apto que o responsável pode liberar sozinho. Padrão 6 |
 | `DATA_DIR` | não | Pasta do banco SQLite (status das áreas e cadastro). Padrão `data` |
 | `ALLOWED_PHONES` | não | Números liberados no piloto, separados por vírgula. Vazio libera todos |
 | `DEBOUNCE_MS` | não | Espera depois da última mensagem antes de responder, para juntar mensagens picadas. Padrão 3000 |
@@ -82,6 +83,8 @@ Só funcionam a partir do `SUPER_ADMIN_PHONE` e dos `SINDICO_PHONES`. De qualque
 | `#abrir piscina` | Remove o aviso; a área volta a seguir a tabela |
 | `#status` | Lista os avisos ativos |
 | `#pendentes` | Lista os cadastros aguardando aprovação, com o código de cada um |
+| `#moradores fase 1 bloco 4 apto 503` | Lista quem está cadastrado no apto |
+| `#remover 5521999999999` | Tira alguém do cadastro e avisa a pessoa |
 | `#aprovar K7QM` / `#recusar K7QM` | Decide um cadastro pelo código. Também serve para liberar um pedido de família quando o responsável não responde |
 | `#ajuda` | Mostra esses comandos |
 

@@ -1,5 +1,19 @@
 import { config } from './config.ts';
-import { createRequest, decide, getByCode, getResident, listPending, parseUnit, unitLabel, unitResponsavel, type Kind, type Resident, type Unit } from './residents.ts';
+import {
+  createRequest,
+  decide,
+  getByCode,
+  getResident,
+  listPending,
+  listUnit,
+  parseUnit,
+  removeResident,
+  unitLabel,
+  unitResponsavel,
+  type Kind,
+  type Resident,
+  type Unit,
+} from './residents.ts';
 import { normalizePhone } from './phone.ts';
 
 // Cadastro do morador na unidade, em etapas fixas (sem modelo): nome, unidade, confirmação e, se o apto
@@ -35,6 +49,11 @@ function approvedText(r: Resident): string {
 function submit(phone: string, s: Session, kind: Kind, now: Date): Outgoing[] {
   sessions.delete(phone);
   const r = createRequest({ phone, name: s.name!, unit: s.unit!, kind }, now);
+  // Apto com muita gente cadastrada: o pedido vai para a administração, para o responsável não liberar estranhos à vontade.
+  if (kind === 'familia' && listUnit(s.unit!).length >= config.maxPerUnit) {
+    const text = `Pedido de família acima do limite de ${config.maxPerUnit} pessoas por apto: *${r.name}*, ${unitLabel(r)}, telefone ${r.phone}.\n\nVeja quem já está em #moradores ${r.fase} ${r.bloco} ${r.apto}\n#aprovar ${r.code} ou #recusar ${r.code}`;
+    return [{ to: phone, text: 'Recebido! A administração confere e te aviso aqui quando for liberado.' }, ...admins().map((to) => ({ to, text }))];
+  }
   if (kind === 'familia') {
     const owner = unitResponsavel(s.unit!)!;
     return [
@@ -59,8 +78,14 @@ export function handleRegistration(phone: string, text: string, now = new Date()
     if (pending?.status === 'pendente' && pending.kind === 'familia' && owner && normalizePhone(owner.phone) === normalizePhone(phone)) {
       const approve = /^s/i.test(decision[1]);
       decide(pending.code!, approve, owner.phone, now);
+      // A administração vê toda liberação feita pelo responsável e pode desfazer.
+      const audit = `${owner.name} (responsável) liberou *${pending.name}* no ${unitLabel(pending)}. Para desfazer: #remover ${pending.phone}`;
       return approve
-        ? [{ to: phone, text: `Liberado: ${pending.name} agora está no cadastro do apto.` }, { to: pending.phone, text: approvedText(pending) }]
+        ? [
+            { to: phone, text: `Liberado: ${pending.name} agora está no cadastro do apto.` },
+            { to: pending.phone, text: approvedText(pending) },
+            ...admins().map((to) => ({ to, text: audit })),
+          ]
         : [
             { to: phone, text: `Ok, o pedido de ${pending.name} foi recusado.` },
             { to: pending.phone, text: `O responsável do apto não confirmou seu cadastro. Se for engano, fale com a administração (ramal 90).` },
@@ -136,9 +161,29 @@ export function handleRegistration(phone: string, text: string, now = new Date()
 
 // Comandos de cadastro da administração. Devolve undefined se não for um deles.
 export function runResidentCommand(text: string, by: string, now = new Date()): Outgoing[] | undefined {
-  const m = text.trim().match(/^#(pendentes|aprovar|recusar)\b\s*(\S*)/i);
+  const m = text.trim().match(/^#(pendentes|aprovar|recusar|remover|moradores)\b\s*(.*)$/i);
   if (!m) return undefined;
   const cmd = m[1].toLowerCase();
+
+  if (cmd === 'moradores') {
+    const unit = parseUnit(m[2]);
+    if (!unit) return [{ to: by, text: 'Qual apto? Ex.: #moradores fase 1 bloco 4 apto 503' }];
+    const rows = listUnit(unit);
+    if (rows.length === 0) return [{ to: by, text: `Ninguém cadastrado no ${unitLabel(unit)}.` }];
+    const lines = rows.map((r) => `• ${r.name} (${r.role === 'responsavel' ? 'responsável' : 'família'}), ${r.phone}`);
+    return [{ to: by, text: `Cadastrados no ${unitLabel(unit)}:\n${lines.join('\n')}\n\nPara tirar alguém: #remover TELEFONE` }];
+  }
+
+  if (cmd === 'remover') {
+    const phone = m[2].replace(/\D/g, '');
+    if (!phone) return [{ to: by, text: 'Qual telefone? Ex.: #remover 5521999999999' }];
+    const r = removeResident(phone, by, now);
+    if (!r) return [{ to: by, text: `Não achei cadastro ativo para ${phone}.` }];
+    return [
+      { to: by, text: `Removido: ${r.name}, ${unitLabel(r)}.` },
+      { to: r.phone, text: `Seu cadastro no ${unitLabel(r)} foi encerrado pela administração. Se for engano, fale com eles pelo ramal 90.` },
+    ];
+  }
 
   if (cmd === 'pendentes') {
     const rows = listPending();
@@ -150,7 +195,7 @@ export function runResidentCommand(text: string, by: string, now = new Date()): 
     return [{ to: by, text: `Cadastros pendentes:\n${lines.join('\n')}\n\nResponda #aprovar CÓDIGO ou #recusar CÓDIGO.` }];
   }
 
-  const code = m[2];
+  const code = m[2].trim().split(/\s+/)[0];
   if (!code) return [{ to: by, text: `Qual código? Ex.: #${cmd} K7QM. Veja os códigos em #pendentes.` }];
   const approve = cmd === 'aprovar';
   const { resident: r, removed } = decide(code, approve, by, now);

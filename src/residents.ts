@@ -102,3 +102,16 @@ export function decide(code: string, approve: boolean, by: string, now = new Dat
   db.prepare('UPDATE residents SET status = ?, code = NULL, decided_at = ?, decided_by = ? WHERE phone = ?').run(status, now.toISOString(), by, r.phone);
   return { resident: { ...r, status, code: null }, removed };
 }
+
+export function listUnit(u: Unit): Resident[] {
+  return getDb()
+    .prepare(`SELECT ${COLUMNS} FROM residents WHERE fase = ? AND bloco = ? AND apto = ? AND status = 'ativo' ORDER BY role DESC, created_at`)
+    .all(u.fase, u.bloco, u.apto) as Resident[];
+}
+
+export function removeResident(phone: string, by: string, now = new Date()): Resident | undefined {
+  const r = getResident(phone);
+  if (!r || r.status !== 'ativo') return undefined;
+  getDb().prepare("UPDATE residents SET status = 'saiu', decided_at = ?, decided_by = ? WHERE phone = ?").run(now.toISOString(), by, r.phone);
+  return r;
+}

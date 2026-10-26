@@ -12,6 +12,8 @@ Ex.: #fechar salão adulto: evento da administração
 *#abrir <área>* volta ao normal
 *#status* lista os avisos ativos
 
+Cadastro: *#pendentes*, *#aprovar CÓDIGO*, *#recusar CÓDIGO*, *#moradores fase 1 bloco 4 apto 503*, *#remover TELEFONE*
+
 O prazo e o motivo são opcionais. Prazos aceitos: "18h", "amanhã", "sexta 14h", "30/10", "3 dias". Quando o prazo vence, eu te lembro.`;
 
 // Comandos da síndica. Devolve a resposta, ou undefined se a mensagem não é um comando conhecido.

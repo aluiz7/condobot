@@ -36,6 +36,8 @@ export const config = {
     .split(',')
     .map((p) => p.trim())
     .filter(Boolean),
+  // Acima disso, novos pedidos de família do mesmo apto vão para a administração, não para o responsável.
+  maxPerUnit: Number(optional('MAX_MORADORES_POR_APTO', '6')),
   // Banco SQLite (status das áreas). Em produção, aponte para um volume persistente.
   dataDir: optional('DATA_DIR', 'data'),
   // Espera depois da última mensagem antes de responder, para juntar mensagens picadas numa resposta só.

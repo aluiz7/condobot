@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 process.env.DATA_DIR = ':memory:';
 process.env.SUPER_ADMIN_PHONE = '5521900000000';
 process.env.SINDICO_PHONES = '5521911110000';
+process.env.MAX_MORADORES_POR_APTO = '2';
 
 const { handleRegistration, runResidentCommand } = await import('../src/registration.ts');
 const { parseUnit, getResident } = await import('../src/residents.ts');
@@ -61,6 +62,7 @@ test('família: só o responsável do apto aprova', () => {
   assert.equal(handleRegistration(INTRUSO, `sim ${code}`), undefined, 'outro número não aprova');
   const approved = handleRegistration(ANA, `sim ${code}`)!;
   assert.match(to(approved, BRUNO), /foi liberado/);
+  assert.match(to(approved, ADMIN), /Ana Souza \(responsável\) liberou \*Bruno Souza\*.*#remover 5521922220002/s, 'admin vê a liberação');
   assert.equal(getResident(BRUNO)?.role, 'dependente');
   assert.match(to(say(BRUNO, 'cadastro'), BRUNO), /já está cadastrado/);
 });
@@ -90,4 +92,23 @@ test('correção, cancelamento, recusa e lista de pendentes', () => {
   const refused = runResidentCommand(`#recusar ${codeIn(to(out, ADMIN))}`, ADMIN)!;
   assert.match(to(refused, INTRUSO), /não confirmou/);
   assert.match(to(runResidentCommand('#pendentes', ADMIN)!, ADMIN), /Nenhum cadastro/);
+});
+
+test('acima do limite por apto, família vai para a administração; admin lista e remove', () => {
+  const D = '5521922220004', E = '5521922220005', F = '5521922220006';
+  const first = say(D, 'cadastro', 'Davi Rocha', 'fase 3 bloco 2 apto 201', 'sim');
+  runResidentCommand(`#aprovar ${codeIn(to(first, ADMIN))}`, ADMIN);
+  const fam = say(E, 'cadastro', 'Eva Rocha', 'fase 3 bloco 2 apto 201', 'sim', '1');
+  handleRegistration(D, `sim ${codeIn(to(fam, D))}`);
+
+  // Limite de teste é 2: o terceiro pedido de família não vai para o responsável.
+  const over = say(F, 'cadastro', 'Fábio Estranho', 'fase 3 bloco 2 apto 201', 'sim', '1');
+  assert.equal(to(over, D), '');
+  assert.match(to(over, ADMIN), /acima do limite de 2/);
+
+  assert.match(to(runResidentCommand('#moradores 3 2 201', ADMIN)!, ADMIN), /Davi Rocha \(responsável\).*Eva Rocha \(família\)/s);
+  const removed = runResidentCommand(`#remover ${E}`, ADMIN)!;
+  assert.match(to(removed, ADMIN), /Removido: Eva Rocha/);
+  assert.match(to(removed, E), /encerrado pela administração/);
+  assert.equal(getResident(E)?.status, 'saiu');
 });
