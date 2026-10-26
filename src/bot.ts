@@ -1,6 +1,7 @@
 import { config } from './config.ts';
 import { runAdminCommand } from './commands.ts';
 import { createDebouncer } from './debounce.ts';
+import { quickAnswer } from './faq.ts';
 import { getHistory, remember } from './history.ts';
 import { answer, transcribe, type Answer } from './llm.ts';
 import { logInteraction } from './log.ts';
@@ -78,10 +79,14 @@ const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, fresh)
   const lastId = items[items.length - 1].id;
   const started = Date.now();
   const history = getHistory(phone);
+  const status = listStatus();
   const canned = cannedReply(question, history.length > 0);
+  const quick = canned ? undefined : quickAnswer(question, status);
   const result: Answer & { tier?: string } = canned
     ? { text: canned, usage: {} }
-    : await whileTyping(lastId, () => answer(history, question, new Date(), formatNotices(listStatus())));
+    : quick
+      ? { text: quick, usage: {}, tier: 'tabela' }
+      : await whileTyping(lastId, () => answer(history, question, new Date(), formatNotices(status)));
   if (inflight.get(phone)?.gen !== gen) return;
   inflight.delete(phone);
 
