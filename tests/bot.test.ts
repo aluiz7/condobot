@@ -25,7 +25,9 @@ process.env.PHONE_NUMBER_ID = '123';
 process.env.VERIFY_TOKEN = 'v';
 process.env.APP_SECRET = '';
 process.env.DEBOUNCE_MS = '100';
-process.env.ALLOWED_PHONES = '';
+process.env.ALLOWED_PHONES = '5521900000001,5521900000002';
+process.env.SINDICO_PHONES = '5521977770000';
+process.env.DATA_DIR = ':memory:';
 process.env.LOG_DIR = mkdtempSync(join(tmpdir(), 'condobot-'));
 
 const { createApp } = await import('../src/app.ts');
@@ -96,4 +98,18 @@ test('mensagem repetida pela Meta é ignorada e imagem recebe aviso', async () =
   await wait(200);
   assert.equal(sent().length, 1);
   assert.match(sent()[0].body.text.body, /texto e áudio/);
+});
+
+test('comando da síndica responde na hora, mesmo sem o nono dígito; número fora da allowlist é ignorado', async () => {
+  calls.length = 0;
+  const app = createApp();
+  await app.request('/webhook', webhook('w4', '552177770000', { type: 'text', text: { body: '#fechar quiosque: dedetização' } }));
+  await wait(50);
+  assert.equal(sent().length, 1, 'responde antes do debounce');
+  assert.match(sent()[0].body.text.body, /Quiosque: fechada/);
+
+  calls.length = 0;
+  await app.request('/webhook', webhook('w5', '5521900000003', { type: 'text', text: { body: '#abrir quiosque' } }));
+  await wait(200);
+  assert.equal(sent().length, 0, 'número fora da allowlist nem é respondido');
 });

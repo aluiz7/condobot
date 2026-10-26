@@ -2,6 +2,7 @@
 // com o comportamento esperado, para revisão manual antes da demo.
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { answer } from '../src/llm.ts';
+import { formatNotices } from '../src/status.ts';
 
 type Case = { n: string; question: string; kind: string; expected: string; source: string };
 
@@ -33,7 +34,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 for (const [i, c] of selected.entries()) {
   if (i > 0) await sleep(delayMs);
   const started = Date.now();
-  let r = await answer([], c.question, now);
+  let r = await answer([], c.question, now, formatNotices([]));
   // Cota diária esgotada: esperar não adianta, então para aqui.
   if (r.error?.includes('PerDay')) {
     console.log(`#${c.n} cota diária do Gemini esgotada; parando. Resultados parciais em ${out}`);
@@ -41,7 +42,7 @@ for (const [i, c] of selected.entries()) {
   }
   if (r.error?.includes('429')) {
     await sleep(60_000);
-    r = await answer([], c.question, now);
+    r = await answer([], c.question, now, formatNotices([]));
   }
   totalInput += r.usage.input ?? 0;
   totalCached += r.usage.cached ?? 0;

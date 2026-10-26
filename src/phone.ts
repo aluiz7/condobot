@@ -13,3 +13,8 @@ export function isAllowed(phone: string, allowed: string[], superAdmin = ''): bo
   const target = normalizePhone(phone);
   return [...allowed, superAdmin].filter(Boolean).some((p) => normalizePhone(p) === target);
 }
+
+export function isOneOf(phone: string, list: string[]): boolean {
+  const target = normalizePhone(phone);
+  return list.filter(Boolean).some((p) => normalizePhone(p) === target);
+}

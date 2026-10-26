@@ -1,9 +1,11 @@
 import { config } from './config.ts';
+import { runAdminCommand } from './commands.ts';
 import { createDebouncer } from './debounce.ts';
 import { getHistory, remember } from './history.ts';
 import { answer, transcribe, type Answer } from './llm.ts';
 import { logInteraction } from './log.ts';
-import { isAllowed } from './phone.ts';
+import { isAllowed, isOneOf } from './phone.ts';
+import { formatNotices, listStatus } from './status.ts';
 import { downloadMedia, sendText, showTyping, type IncomingMessage } from './whatsapp.ts';
 
 export const WELCOME = `Oi! Sou o assistente do Atlantis Park. Tiro dúvidas sobre o condomínio, por texto ou áudio:
@@ -62,7 +64,7 @@ const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, items)
   const canned = cannedReply(question, history.length > 0);
   const result: Answer = canned
     ? { text: canned, usage: {} }
-    : await whileTyping(lastId, () => answer(history, question));
+    : await whileTyping(lastId, () => answer(history, question, new Date(), formatNotices(listStatus())));
   await sendText(phone, result.text);
   if (!canned && !result.error) remember(phone, question, result.text);
 
@@ -78,9 +80,23 @@ const enqueue = createDebouncer<Pending>(config.debounceMs, async (phone, items)
   });
 });
 
+export function isAdmin(phone: string): boolean {
+  return isOneOf(phone, [config.superAdminPhone, ...config.sindicoPhones]);
+}
+
 export async function handleMessage(msg: IncomingMessage) {
   if (isDuplicate(msg.id)) return;
-  if (!isAllowed(msg.from, config.allowedPhones, config.superAdminPhone)) return;
+  const admin = isAdmin(msg.from);
+  if (!admin && !isAllowed(msg.from, config.allowedPhones, config.superAdminPhone)) return;
+
+  // Comando da síndica responde na hora, sem esperar outras mensagens nem chamar o modelo.
+  if (admin && msg.type === 'text' && msg.text?.trim().startsWith('#')) {
+    const reply = runAdminCommand(msg.text, msg.from);
+    if (reply) {
+      await sendText(msg.from, reply);
+      return;
+    }
+  }
 
   await showTyping(msg.id).catch(() => {});
 

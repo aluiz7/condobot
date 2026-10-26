@@ -31,6 +31,13 @@ export const config = {
     .map((p) => p.trim())
     .filter(Boolean),
   superAdminPhone: optional('SUPER_ADMIN_PHONE'),
+  // Números da síndica e de quem mais puder mudar o status das áreas (separados por vírgula).
+  sindicoPhones: optional('SINDICO_PHONES')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean),
+  // Banco SQLite (status das áreas). Em produção, aponte para um volume persistente.
+  dataDir: optional('DATA_DIR', 'data'),
   // Espera depois da última mensagem antes de responder, para juntar mensagens picadas numa resposta só.
   debounceMs: Number(optional('DEBOUNCE_MS', '3000')),
   logDir: optional('LOG_DIR', 'logs'),

@@ -52,14 +52,15 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export async function answer(history: Turn[], question: string, now = new Date()): Promise<Answer> {
+// notices: avisos da administração no momento (status das áreas), enviados junto com a pergunta.
+export async function answer(history: Turn[], question: string, now = new Date(), notices = ''): Promise<Answer> {
   const { client, systemInstruction } = setup();
   try {
     const res = await withRetry(() => client.models.generateContent({
       model: config.gemini.model,
       contents: [
         ...history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-        { role: 'user', parts: [{ text: `${describeNow(now)}\n${question}` }] },
+        { role: 'user', parts: [{ text: [describeNow(now), notices, question].filter(Boolean).join('\n') }] },
       ],
       config: {
         systemInstruction,
